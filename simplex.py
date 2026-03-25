@@ -1,4 +1,72 @@
 import math
+import re
+
+def extract_coefficient(coefficient):
+    coefficient = coefficient.replace(" ", "")
+    if coefficient == "" or coefficient == "+":
+        return 1.0
+    if coefficient == "-":
+        return -1.0
+    return float(coefficient)
+
+def read_txt(file_path):
+    pattern = re.compile(r'([+-]?\s*\d*(?:\.\d+)?)\s*[xX](\d+)')
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    empty_lines = []
+    max_index = 0
+
+    for line in lines:
+        line_normalized = line.replace('−', '-').replace('≤', '<=').replace('≥', '>=').strip()
+        if not line_normalized:
+            continue
+            
+        if re.search(r'>=\s*0', line_normalized) and ',' in line_normalized:
+            continue
+
+        matches = pattern.findall(line_normalized)
+        for _, idx_str in matches:
+            max_index = max(max_index, int(idx_str))
+
+        empty_lines.append(line_normalized)
+
+    n_vars = max_index
+
+    func_type = "max"
+    vector_c = [0.0] * n_vars
+    matrix_A = []
+    vector_b = []
+    sinals = []
+
+    line_obj = empty_lines[0]
+    if "min" in line_obj.lower():
+        func_type = "min"
+        
+    if "=" in line_obj:
+        equation = line_obj.split("=")[1]
+        for coef_str, idx_str in pattern.findall(equation):
+            vector_c[int(idx_str) - 1] = extract_coefficient(coef_str)
+
+    for line in empty_lines[1:]:
+        sinal = None
+        if '<=' in line: sinal = '<='
+        elif '>=' in line: sinal = '>='
+        elif '=' in line: sinal = '='
+        else: continue
+
+        left, right = line.split(sinal)
+        
+        line_A = [0.0] * n_vars
+        for coef_str, idx_str in pattern.findall(left):
+            line_A[int(idx_str) - 1] = extract_coefficient(coef_str)
+            
+        matrix_A.append(line_A)
+        vector_b.append(float(right.strip()))
+        sinals.append(sinal)
+
+    return func_type, vector_c, matrix_A, vector_b, sinals
 
 def sub_matrix(A, line, column):
     sub = []
@@ -73,7 +141,7 @@ def inverse(A, identity):
     return identity
 
 if __name__ == "__main__":
-    A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
+    """A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
     identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     result = cofactor_expansion(A);
     print(result)
@@ -84,3 +152,15 @@ if __name__ == "__main__":
             print([round(element, 4) for element in line])
     else:
         print("Determinante é 0, logo não existe inversa")
+    """
+    try:
+        tipo, c, A, b, sinals = read_txt('func.txt')
+        
+        print(f"Tipo: {tipo}")
+        print(f"função objetivo: {c}")
+        print("Matriz A (restrições):")
+        for i in range(len(A)):
+            print(f"  {A[i]} {sinals[i]} {b[i]}")
+            
+    except FileNotFoundError:
+        print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
