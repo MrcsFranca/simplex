@@ -68,6 +68,25 @@ def read_txt(file_path):
 
     return func_type, vector_c, matrix_A, vector_b, sinals
 
+def multiply(A, B):
+    rows_A = len(A)
+    cols_A = len(A[0]) if rows_A > 0 else 0
+    
+    rows_B = len(B)
+    cols_B = len(B[0]) if rows_B > 0 else 0
+
+    if cols_A != rows_B:
+        raise ValueError(f"colunas da matriz A precisa ser igual número de linhas da matriz B")
+
+    result = [[0.0 for _ in range(cols_B)] for _ in range(rows_A)]
+
+    for i in range(rows_A):
+        for j in range(cols_B):
+            for k in range(cols_A):
+                result[i][j] += A[i][k] * B[k][j]
+
+    return result
+
 def sub_matrix(A, line, column):
     sub = []
     for i in range(len(A)):
@@ -152,7 +171,6 @@ if __name__ == "__main__":
             print([round(element, 4) for element in line])
     else:
         print("Determinante é 0, logo não existe inversa")
-    """
     try:
         tipo, c, A, b, sinals = read_txt('func.txt')
         
@@ -164,3 +182,16 @@ if __name__ == "__main__":
             
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
+    """
+    matriz_1 = [
+        [1, 2, 3],
+        [4, 5, 6]
+    ]
+
+    matriz_2 = [
+        [7, 8],
+        [9, 10],
+        [11, 12]
+    ]
+
+    print(multiply(matriz_1, matriz_2))
