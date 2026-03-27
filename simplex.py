@@ -1,5 +1,6 @@
 import math
 import re
+import numpy as np
 
 def extract_coefficient(coefficient):
     coefficient = coefficient.replace(" ", "")
@@ -159,6 +160,35 @@ def inverse(A, identity):
 
     return identity
 
+def normalized_func(A, sinals):
+    # se a inegualdade for menor eu somo uma variavel
+    # se a inegualdade for maior eu subtraio uma variavel
+    n = len(A)
+    k = len(A[0])
+
+    aux = [[0.0] for _ in range(n)]
+    print(f'vetor com quantidade de colunas: {aux}')
+
+    for i in range(1, k):
+        A = np.append(A, aux, axis=1)
+
+    print(A)
+
+    for i in range(n):
+        if sinals[i] == '>=':
+            A[i][k] = -1
+        elif sinals[i] == '<=':
+            A[i][k] = 1
+
+    print(f'matriz depois de estar normalizada:\n {A}')
+
+
+#def simplex():
+#    padrao
+#    tamnaho da basica e n basica
+#    escolher randomicamente quais colunas vao formar a matriz basica e n basica
+
+
 if __name__ == "__main__":
     """A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
     identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
@@ -171,6 +201,8 @@ if __name__ == "__main__":
             print([round(element, 4) for element in line])
     else:
         print("Determinante é 0, logo não existe inversa")
+    """
+
     try:
         tipo, c, A, b, sinals = read_txt('func.txt')
         
@@ -182,6 +214,7 @@ if __name__ == "__main__":
             
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
+
     """
     matriz_1 = [
         [1, 2, 3],
@@ -195,3 +228,7 @@ if __name__ == "__main__":
     ]
 
     print(multiply(matriz_1, matriz_2))
+    """
+
+    print(len(A))
+    A = normalized_func(A, sinals)
