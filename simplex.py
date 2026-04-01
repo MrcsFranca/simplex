@@ -2,6 +2,7 @@ import math
 import re
 import numpy as np
 
+#Verifica se o coeficiente é positivo ou negativo
 def extract_coefficient(coefficient):
     coefficient = coefficient.replace(" ", "")
     if coefficient == "" or coefficient == "+":
@@ -10,6 +11,7 @@ def extract_coefficient(coefficient):
         return -1.0
     return float(coefficient)
 
+#Faz a leitura do txt e algumas padronizações
 def read_txt(file_path):
     pattern = re.compile(r'([+-]?\s*\d*(?:\.\d+)?)\s*[xX](\d+)')
 
@@ -69,6 +71,7 @@ def read_txt(file_path):
 
     return func_type, vector_c, matrix_A, vector_b, sinals
 
+#faz a multiplicação das matrizes
 def multiply(A, B):
     rows_A = len(A)
     cols_A = len(A[0]) if rows_A > 0 else 0
@@ -106,16 +109,13 @@ def sub_matrix(A, line, column):
 
 def cofactor_expansion(A):
     n = len(A)
-
     if n == 1:
         return A[0][0]
 
     det = 0
     for j in range(n):
         cofactor = ((-1) ** (0 + j)) * A[0][j]
-
         sub_mtx = sub_matrix(A, 0, j)
-
         det += cofactor * cofactor_expansion(sub_mtx)
 
     return det
@@ -160,6 +160,7 @@ def inverse(A, identity):
 
     return identity
 
+#normaliza as restrições - forma padrão
 def normalized_func(A, sinals):
     # se a inegualdade for menor eu somo uma variavel
     # se a inegualdade for maior eu subtraio uma variavel
@@ -181,11 +182,23 @@ def normalized_func(A, sinals):
             A[i][k] = 1
 
     print(f'matriz depois de estar normalizada:\n {A}')
+    return A
 
+# Se a função for max, mult por -1 para trabalhar só com mínimo
+def all_min(c):
+    n = len(c)
+    for i in range(n):
+        c[i] = c[i] * -1
+
+    return c
+
+#Define a matriz básica e a matriz não básica
+def basic_nonBasic(A, b):
+    return 0, 0
 
 #def simplex():
 #    padrao
-#    tamnaho da basica e n basica
+#    tamanho da basica e n basica
 #    escolher randomicamente quais colunas vao formar a matriz basica e n basica
 
 
@@ -215,20 +228,11 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
 
-    """
-    matriz_1 = [
-        [1, 2, 3],
-        [4, 5, 6]
-    ]
-
-    matriz_2 = [
-        [7, 8],
-        [9, 10],
-        [11, 12]
-    ]
-
-    print(multiply(matriz_1, matriz_2))
-    """
-
     print(len(A))
     A = normalized_func(A, sinals)
+
+    if tipo == "max":
+        c = all_min(c)
+
+    B, NB = basic_nonBasic(A, b)
+    print(B, NB)
