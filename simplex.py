@@ -164,25 +164,52 @@ def inverse(A, identity):
 def normalized_func(A, sinals):
     # se a inegualdade for menor eu somo uma variavel
     # se a inegualdade for maior eu subtraio uma variavel
+    A = np.array(A, dtype=float)
+    n = A.shape[0]
+    n_var = sum(1 for sinal in sinals if sinal in ['<=', '>='])
+    if n_var == 0:
+        return A
+
+    matrix_vars = np.zeros((n, n_var))
+
+    idx = 0
+    for i in range(n):
+        lines = [0] * n_var
+        if sinals[i] == '>=':
+            matrix_vars[i, idx] = -1
+            idx += 1
+        elif sinals[i] == '<=':
+            matrix_vars[i, idx] = 1
+            idx += 1
+
+    A = np.hstack((A, matrix_vars))
+
+    return A
+"""
     n = len(A)
     k = len(A[0])
 
     aux = [[0.0] for _ in range(n)]
     print(f'vetor com quantidade de colunas: {aux}')
 
-    for i in range(1, k):
-        A = np.append(A, aux, axis=1)
+    n_var = 0
+    for sinal in sinals:
+        if sinal == '<=' or sinal == '>=':
+            n_var += 1
+
+    if n_var == 0:
+        return A
+
+    for i in range(n_var):
+        for j in range(1, k):
+            A = np.append(A, aux, axis=1)
 
     print(A)
 
-    for i in range(n):
-        if sinals[i] == '>=':
-            A[i][k] = -1
-        elif sinals[i] == '<=':
-            A[i][k] = 1
 
     print(f'matriz depois de estar normalizada:\n {A}')
     return A
+"""
 
 # Se a função for max, mult por -1 para trabalhar só com mínimo
 def all_min(c):
@@ -230,6 +257,7 @@ if __name__ == "__main__":
 
     print(len(A))
     A = normalized_func(A, sinals)
+    print(A)
 
     if tipo == "max":
         c = all_min(c)
