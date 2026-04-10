@@ -1,6 +1,9 @@
 import math
 import re
 import numpy as np
+import random
+
+random.seed()
 
 #Verifica se o coeficiente é positivo ou negativo
 def extract_coefficient(coefficient):
@@ -38,9 +41,9 @@ def read_txt(file_path):
     n_vars = max_index
 
     func_type = "max"
-    vector_c = [0.0] * n_vars
-    matrix_A = []
-    vector_b = []
+    vector_c = np.zeros(n_vars, dtype=float)
+    matrix_A_list = []
+    vector_b_list = []
     sinals = []
 
     line_obj = empty_lines[0]
@@ -61,13 +64,16 @@ def read_txt(file_path):
 
         left, right = line.split(sinal)
         
-        line_A = [0.0] * n_vars
+        line_A = np.zeros(n_vars, dtype=float)
         for coef_str, idx_str in pattern.findall(left):
             line_A[int(idx_str) - 1] = extract_coefficient(coef_str)
             
-        matrix_A.append(line_A)
-        vector_b.append(float(right.strip()))
+        matrix_A_list.append(line_A)
+        vector_b_list.append(float(right.strip()))
         sinals.append(sinal)
+
+    matrix_A = np.array(matrix_A_list, dtype=float)
+    vector_b = np.array(vector_b_list, dtype=float)
 
     return func_type, vector_c, matrix_A, vector_b, sinals
 
@@ -161,10 +167,11 @@ def inverse(A, identity):
     return identity
 
 #normaliza as restrições - forma padrão
-def normalized_func(A, sinals):
+def normalized_func(A, sinals, c):
     # se a inegualdade for menor eu somo uma variavel
     # se a inegualdade for maior eu subtraio uma variavel
     A = np.array(A, dtype=float)
+    c = np.array(c, dtype=float)
     n = A.shape[0]
     n_var = sum(1 for sinal in sinals if sinal in ['<=', '>='])
     if n_var == 0:
@@ -178,13 +185,15 @@ def normalized_func(A, sinals):
         if sinals[i] == '>=':
             matrix_vars[i, idx] = -1
             idx += 1
+            c = np.hstack((c, 0))
         elif sinals[i] == '<=':
             matrix_vars[i, idx] = 1
             idx += 1
+            c = np.hstack((c, 0))
 
     A = np.hstack((A, matrix_vars))
 
-    return A
+    return A, c
 """
     n = len(A)
     k = len(A[0])
@@ -221,6 +230,22 @@ def all_min(c):
 
 #Define a matriz básica e a matriz não básica
 def basic_nonBasic(A, b):
+    n_lines = len(A)
+    n_columns = len(A[0]) if n_lines > 0 else 0
+    B = np.zeros((n_lines, n_lines), dtype=float)
+    NB = np.zeros((n_lines, n_lines), dtype=float)
+    sorted_values = []
+    print(f"tamanho de A: {n_lines}")
+    sorted_values = random.sample(range(n_columns), n_lines)
+    print(f"valores sorteados {sorted_values}")
+    for i in range(n_lines):
+        pos = sorted_values[i]
+        print(f"valor de pos: {pos}")
+        print("coluna de a")
+        print(A[1])
+        #print(A[pos]) so vai funcionar apropriadamente quando todas as matrizes forem do numpy
+        #B = np.hstack((A, A[i]))
+
     return 0, 0
 
 #def simplex():
@@ -255,12 +280,14 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
 
-    print(len(A))
-    A = normalized_func(A, sinals)
-    print(A)
+    A, c = normalized_func(A, sinals, c)
+    print(f"matriz A:\n{A}")
+    print(f"matriz b:\n{b}")
+    print(f"matriz c:\n{c}")
 
     if tipo == "max":
         c = all_min(c)
 
     B, NB = basic_nonBasic(A, b)
+    print(f"\n\n\nmatriz básica: {B}\n\nmatriz não básica {NB}")
     print(B, NB)
