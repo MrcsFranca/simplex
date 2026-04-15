@@ -5,6 +5,13 @@ import random
 
 random.seed()
 
+# define para 6 casas decimais ou 0
+def clean_value(value, decimals=6):
+    if abs(value) < (10 ** -decimals):
+        return 0.0
+    
+    return round(float(value), decimals)
+
 #Verifica se o coeficiente é positivo ou negativo
 def extract_coefficient(coefficient):
     coefficient = coefficient.replace(" ", "")
@@ -126,6 +133,17 @@ def cofactor_expansion(A):
 
     return det
 
+def gen_identity(A):
+    n_lines = len(A)
+    n_columns = len(A[0]) if n_lines > 0 else 0
+    identity = np.zeros((n_lines, n_lines), dtype=float)
+    for i in range(n_lines):
+        for j in range(n_lines):
+            if i == j:
+                identity[i, j] = 1
+
+    return identity.tolist()
+
 def inverse(A, identity):
     n = len(A)
 
@@ -164,6 +182,7 @@ def inverse(A, identity):
                 matrix_A[j][k] -= multiplier * matrix_A[i][k]
                 identity[j][k] -= multiplier * identity[i][k]
 
+    identity = [[clean_value(element) for element in line] for line in identity]
     return identity
 
 #normaliza as restrições - forma padrão
@@ -194,31 +213,6 @@ def normalized_func(A, sinals, c):
     A = np.hstack((A, matrix_vars))
 
     return A, c
-"""
-    n = len(A)
-    k = len(A[0])
-
-    aux = [[0.0] for _ in range(n)]
-    print(f'vetor com quantidade de colunas: {aux}')
-
-    n_var = 0
-    for sinal in sinals:
-        if sinal == '<=' or sinal == '>=':
-            n_var += 1
-
-    if n_var == 0:
-        return A
-
-    for i in range(n_var):
-        for j in range(1, k):
-            A = np.append(A, aux, axis=1)
-
-    print(A)
-
-
-    print(f'matriz depois de estar normalizada:\n {A}')
-    return A
-"""
 
 # Se a função for max, mult por -1 para trabalhar só com mínimo
 def all_min(c):
@@ -233,20 +227,26 @@ def basic_nonBasic(A, b):
     n_lines = len(A)
     n_columns = len(A[0]) if n_lines > 0 else 0
     B = np.zeros((n_lines, n_lines), dtype=float)
-    NB = np.zeros((n_lines, n_lines), dtype=float)
     sorted_values = []
-    print(f"tamanho de A: {n_lines}")
+
     sorted_values = random.sample(range(n_columns), n_lines)
     print(f"valores sorteados {sorted_values}")
+
     for i in range(n_lines):
         pos = sorted_values[i]
-        print(f"valor de pos: {pos}")
-        print("coluna de a")
-        print(A[1])
-        #print(A[pos]) so vai funcionar apropriadamente quando todas as matrizes forem do numpy
-        #B = np.hstack((A, A[i]))
+        B[:, i] = A[:, pos]
 
-    return 0, 0
+    nb_values = [col for col in range(n_columns) if col not in sorted_values]
+    nb_cols = len(nb_values)
+    NB = np.zeros((n_lines, nb_cols), dtype=float)
+    print(nb_values)
+
+    for i in range(nb_cols):
+        pos = nb_values[i]
+        NB[:, i] = A[:, pos]
+
+
+    return B, NB
 
 #def simplex():
 #    padrao
@@ -271,11 +271,13 @@ if __name__ == "__main__":
     try:
         tipo, c, A, b, sinals = read_txt('func.txt')
         
+        """
         print(f"Tipo: {tipo}")
         print(f"função objetivo: {c}")
         print("Matriz A (restrições):")
         for i in range(len(A)):
             print(f"  {A[i]} {sinals[i]} {b[i]}")
+        """
             
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
@@ -289,5 +291,18 @@ if __name__ == "__main__":
         c = all_min(c)
 
     B, NB = basic_nonBasic(A, b)
-    print(f"\n\n\nmatriz básica: {B}\n\nmatriz não básica {NB}")
-    print(B, NB)
+    print(f"\nmatriz básica:\n {B}\n\nmatriz não básica:\n {NB}")
+    result = cofactor_expansion(A);
+
+    identity = gen_identity(A)
+    if result != 0:
+        inverse = inverse(B, identity)
+        for line in inverse:
+            print([round(element, 4) for element in line])
+    else:
+        print("Determinante é 0, logo não existe inversa. Tenho que sortear novos valores")
+
+
+    # tenho q calcular o determinante da matriz B e se for != 0 existe inversa, se for = 0 eu tenho que sortear novas colunas para B
+
+    print(f"matriz inversa:\n{inverse}")
