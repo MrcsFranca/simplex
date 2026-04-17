@@ -104,22 +104,11 @@ def multiply(A, B):
 
     return result
 
+# extrai a submatriz
 def sub_matrix(A, line, column):
-    sub = []
-    for i in range(len(A)):
-        if i == line:
-            continue
+    return np.delete(np.delete(A, line, axis=0), column, axis=1)
 
-        nl = []
-        for j in range(len(A)):
-            if j == column:
-                continue
-
-            nl.append(A[i][j])
-        sub.append(nl)
-
-    return sub
-
+# metodo da expansão dos cofatores
 def cofactor_expansion(A):
     n = len(A)
     if n == 1:
@@ -133,57 +122,49 @@ def cofactor_expansion(A):
 
     return det
 
+# gera a matriz identidade
 def gen_identity(A):
     n_lines = len(A)
-    n_columns = len(A[0]) if n_lines > 0 else 0
-    identity = np.zeros((n_lines, n_lines), dtype=float)
-    for i in range(n_lines):
-        for j in range(n_lines):
-            if i == j:
-                identity[i, j] = 1
+    return np.eye(n_lines, dtype=float)
 
-    return identity.tolist()
-
+# calcula a matriz inversa
 def inverse(A, identity):
     n = len(A)
-
-    matrix_A = [line[:] for line in A]
-    identity = [line[:] for line in identity]
+    matrix_A = np.copy(A)
+    matrix_I = np.copy(identity)
     
     for i in range(n):
         pivotLine = i
-        maxValue = math.fabs(matrix_A[i][i])
+        maxValue = math.fabs(matrix_A[i, i])
 
         for j in range(i + 1, n):
-            if math.fabs(matrix_A[j][i]) > maxValue:
+            if math.fabs(matrix_A[j, i]) > maxValue:
                 pivotLine = j
-                maxValue = math.fabs(matrix_A[j][i])
+                maxValue = math.fabs(matrix_A[j, i])
 
         if pivotLine != i:
-            matrix_A[i], matrix_A[pivotLine] = matrix_A[pivotLine], matrix_A[i]
-            identity[i], identity[pivotLine] = identity[pivotLine], identity[i]
+            matrix_A[[i, pivotLine]] = matrix_A[[pivotLine, i]]
+            matrix_I[[i, pivotLine]] = matrix_I[[pivotLine, i]]
 
-        pivot = matrix_A[i][i]
+        pivot = matrix_A[i, i]
 
-        if pivot == 0:
+        if clean_value(pivot) == 0.0:
             raise ValueError("Foi encontrada uma divisão por 0. Matriz singular.")
 
-        for j in range(n):
-            matrix_A[i][j] /= pivot
-            identity[i][j] /= pivot
+        matrix_A[i] = matrix_A[i] / pivot
+        matrix_I[i] = matrix_I[i] / pivot
 
         for j in range(n):
             if i == j:
                 continue
 
-            multiplier = matrix_A[j][i]
+            multiplier = matrix_A[j, i]
 
-            for k in range(n):
-                matrix_A[j][k] -= multiplier * matrix_A[i][k]
-                identity[j][k] -= multiplier * identity[i][k]
+            matrix_A[j] -= multiplier * matrix_A[i]
+            matrix_I[j] -= multiplier * matrix_I[i]
 
-    identity = [[clean_value(element) for element in line] for line in identity]
-    return identity
+    clean_vectorized = np.vectorize(clean_value)
+    return clean_vectorized(matrix_I)
 
 #normaliza as restrições - forma padrão
 def normalized_func(A, sinals, c):
@@ -246,13 +227,12 @@ def basic_nonBasic(A, b):
         NB[:, i] = A[:, pos]
 
 
-    return B, NB
+    return B, NB, sorted_values, nb_values
 
-#def simplex():
+def simplex2():
+    return 
 #    padrao
 #    tamanho da basica e n basica
-#    escolher randomicamente quais colunas vao formar a matriz basica e n basica
-
 
 if __name__ == "__main__":
     """A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
@@ -290,19 +270,35 @@ if __name__ == "__main__":
     if tipo == "max":
         c = all_min(c)
 
-    B, NB = basic_nonBasic(A, b)
-    print(f"\nmatriz básica:\n {B}\n\nmatriz não básica:\n {NB}")
-    result = cofactor_expansion(A);
+    tested_bases = set() 
+    new_B = None
+    new_NB = None
+    inverse_B = None
+    while True:
+        B_np, NB_np, sorted_values, nb_values = basic_nonBasic(A, b)
+        print(f"\nMatrix básica:\n"B_np)
+        base_tuple = tuple(sorted(sorted_values))
 
-    identity = gen_identity(A)
-    if result != 0:
-        inverse = inverse(B, identity)
-        for line in inverse:
-            print([round(element, 4) for element in line])
-    else:
-        print("Determinante é 0, logo não existe inversa. Tenho que sortear novos valores")
+        if base_tuple in tested_bases:
+            print(f"Combinação {base_tuple} já testada. Sorteando novamente...")
+            continue 
+            
+        tested_bases.add(base_tuple)
+        print(f"\nTestando nova base com as colunas: {sorted_values}")
 
+        result = cofactor_expansion(B_np)
+        result = clean_value(result)
 
-    # tenho q calcular o determinante da matriz B e se for != 0 existe inversa, se for = 0 eu tenho que sortear novas colunas para B
+        if result != 0.0:
+            print(f"Determinante de B = {result}. Matriz válida encontrada!")
+            new_B = B_np
+            new_NB = NB_np
+            break
+        else:
+            print("Determinante de B = 0. Matriz singular. Sorteando novas colunas...")
 
-    print(f"matriz inversa:\n{inverse}")
+    identity = gen_identity(new_B)
+    inverse_B = inverse(new_B, identity)
+
+    print(inverse_B)
+
