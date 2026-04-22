@@ -229,10 +229,42 @@ def basic_nonBasic(A, b):
 
     return B, NB, sorted_values, nb_values
 
-def simplex2():
-    return 
-#    padrao
-#    tamanho da basica e n basica
+def simplex2(c, B, NB, B_idx, NB_idx, inverse_B):
+    C_B = [clean_value(c[i]) for i in B_idx]
+    C_N = [clean_value(c[i]) for i in NB_idx]
+
+    print(f"Variáveis Básicas (índices): {B_idx} | Custos (C_B): {C_B}")
+    print(f"Variáveis Não Básicas (índices): {NB_idx} | Custos (C_N): {C_N}")
+
+    NB_list = NB.tolist() if isinstance(NB, np.ndarray) else NB
+    inverse_B_list = inverse_B.tolist() if isinstance(inverse_B, np.ndarray) else inverse_B
+
+    pi_matrix = multiply([C_B], inverse_B_list)
+    pi = [clean_value(val) for val in pi_matrix[0]] 
+    print(f"\nVetor Multiplicador (pi): {pi}")
+
+    pi_N_matrix = multiply([pi], NB_list)
+    pi_N = pi_N_matrix[0]
+    
+    ralative_CN = []
+    for i in range(len(C_N)):
+        value = C_N[i] - pi_N[i]
+        ralative_CN.append(clean_value(value))
+        
+    print(f"Custos Relativos (ralative_CN): {ralative_CN}")
+
+    min_cost = min(ralative_CN)
+    
+    if min_cost >= 0:
+        print("\n[RESULTADO] Todos os custos relativos são >= 0. A solução atual é ÓTIMA!")
+        return True, None
+    
+    enter_idx = ralative_CN.index(min_cost)
+    
+    new_col = NB_idx[enter_idx]
+    print(f"\n[AÇÃO] O menor custo é {min_cost}. A variável original (coluna {new_col}) ENTRA na base.")
+    
+    return False, enter_idx
 
 if __name__ == "__main__":
     """A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
@@ -276,7 +308,7 @@ if __name__ == "__main__":
     inverse_B = None
     while True:
         B_np, NB_np, sorted_values, nb_values = basic_nonBasic(A, b)
-        print(f"\nMatrix básica:\n"B_np)
+        print(f"\nMatrix básica:\n{B_np}")
         base_tuple = tuple(sorted(sorted_values))
 
         if base_tuple in tested_bases:
@@ -302,3 +334,7 @@ if __name__ == "__main__":
 
     print(inverse_B)
 
+    great, enter_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B)
+
+    if not great:
+        pass
