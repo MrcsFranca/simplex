@@ -338,3 +338,5 @@ if __name__ == "__main__":
 
     if not great:
         pass
+
+    # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
