@@ -229,7 +229,7 @@ def basic_nonBasic(A, b):
 
     return B, NB, sorted_values, nb_values
 
-def simplex2(c, B, NB, B_idx, NB_idx, inverse_B):
+def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b):
     C_B = [clean_value(c[i]) for i in B_idx]
     C_N = [clean_value(c[i]) for i in NB_idx]
 
@@ -256,30 +256,61 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B):
     min_cost = min(ralative_CN)
     
     if min_cost >= 0:
-        print("\n[RESULTADO] Todos os custos relativos são >= 0. A solução atual é ÓTIMA!")
-        return True, None
+        print("\nTodos os custos são maiores que 0 e a solução é ótima")
+        b_matrix = [[val] for val in b]
+        xB_matrix = multiply(inverse_B_list, b_matrix)
+        final_sol = [clean_value(line[0]) for line in xB_matrix]
+
+        Z_matrix = multiply([C_B], xB_matrix)
+        Z = clean_value(Z_matrix[0][0])
+        
+        total_vars = len(c)
+        full_solution = [0.0] * total_vars
+        
+        for i in range(len(B_idx)):
+            posicao_real = B_idx[i]
+            full_solution[posicao_real] = final_sol[i]
+
+        print(f"Solução Completa: {full_solution}")
+        print(f"Solução ótima: {Z}")
+
+        return True, None, None
     
     enter_idx = ralative_CN.index(min_cost)
     
     new_col = NB_idx[enter_idx]
     print(f"\n[AÇÃO] O menor custo é {min_cost}. A variável original (coluna {new_col}) ENTRA na base.")
+
+    a_Nk = [[line[enter_idx]] for line in NB_list]
+    y_matrix = multiply(inverse_B_list, a_Nk)
+    y = [clean_value(line[0]) for line in y_matrix]
+    print(f"Direção Simplex (y): {y}")
+
+    b_matrix = [[val] for val in b]
+    xB_matrix = multiply(inverse_B_list, b_matrix)
+    relative_xB = [clean_value(line[0]) for line in xB_matrix]
+    print(f"Solução Básica Atual (relative_xB): {relative_xB}")
+
+    min_fact = float('inf')
+    leave_idx = -1
+
+    for i in range(len(y)):
+        if y[i] > 0:
+            fact = relative_xB[i] / y[i]
+            if fact < min_fact:
+                min_fact = fact
+                leave_idx = i
     
-    return False, enter_idx
+    if leave_idx == -1:
+        print("\n[ALERTA] Todos os valores de y são <= 0. Problema ILIMITADO (f(x) -> -infinito).")
+        return True, None, None
+        
+    out_col = B_idx[leave_idx]
+    print(f"[AÇÃO] A variável original (coluna {out_col}) SAI da base (Razão = {min_fact}).")
+
+    return False, enter_idx, leave_idx
 
 if __name__ == "__main__":
-    """A = [[1, 2, 3], [3, 1, -1], [0, 4, 2]]
-    identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    result = cofactor_expansion(A);
-    print(result)
-
-    if result != 0:
-        inverse = inverse(A, identity)
-        for line in inverse:
-            print([round(element, 4) for element in line])
-    else:
-        print("Determinante é 0, logo não existe inversa")
-    """
-
     try:
         tipo, c, A, b, sinals = read_txt('func.txt')
         
@@ -306,37 +337,71 @@ if __name__ == "__main__":
     new_B = None
     new_NB = None
     inverse_B = None
+    sorted_values = []
+    nb_values = []
     while True:
-        B_np, NB_np, sorted_values, nb_values = basic_nonBasic(A, b)
+        B_np, NB_np, s_vals, nb_vals = basic_nonBasic(A, b)
         print(f"\nMatrix básica:\n{B_np}")
-        base_tuple = tuple(sorted(sorted_values))
+        base_tuple = tuple(sorted(s_vals))
 
         if base_tuple in tested_bases:
             print(f"Combinação {base_tuple} já testada. Sorteando novamente...")
             continue 
             
         tested_bases.add(base_tuple)
-        print(f"\nTestando nova base com as colunas: {sorted_values}")
+        print(f"\nTestando nova base com as colunas: {s_vals}")
 
         result = cofactor_expansion(B_np)
         result = clean_value(result)
 
         if result != 0.0:
-            print(f"Determinante de B = {result}. Matriz válida encontrada!")
+            print(f"Determinante de B = {result}")
             new_B = B_np
             new_NB = NB_np
+            sorted_values = s_vals
+            nb_values = nb_vals
             break
         else:
-            print("Determinante de B = 0. Matriz singular. Sorteando novas colunas...")
+            print("Determinante de B = 0. Tem que sortear novas colunas")
 
     identity = gen_identity(new_B)
     inverse_B = inverse(new_B, identity)
 
-    print(inverse_B)
 
-    great, enter_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B)
+    great = False
+    it = 1
+    max_it = 20
 
-    if not great:
-        pass
+    while not great and it <= max_it:
+        print(f"\n>>> ITERAÇÃO {it} <<<")
+        
+        great, enter_idx, leave_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B, b)
+
+        if not great:
+            enter_col = nb_values[enter_idx]
+            leave_col = sorted_values[leave_idx]
+            
+            print(f"\n[ATUALIZAÇÃO DE BASE] Trocando x_{leave_col + 1} por x_{enter_col + 1}")
+            
+            sorted_values[leave_idx] = enter_col
+            nb_values[enter_idx] = leave_col
+            
+            for i in range(len(sorted_values)):
+                pos = sorted_values[i]
+                new_B[:, i] = A[:, pos]
+                
+            for i in range(len(nb_values)):
+                pos = nb_values[i]
+                new_NB[:, i] = A[:, pos]
+                
+            identity = gen_identity(new_B)
+            inverse_B = inverse(new_B, identity)
+            
+            it += 1
+
+    if it > max_it:
+        print("\n[AVISO] Limite de iterações atingido. O programa parou por segurança.")
+    else:
+        print("\n[FIM] Execução do Simplex finalizada com sucesso!")
 
     # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
