@@ -149,7 +149,7 @@ def inverse(A, identity):
         pivot = matrix_A[i, i]
 
         if clean_value(pivot) == 0.0:
-            raise ValueError("Foi encontrada uma divisão por 0. Matriz singular.")
+            raise ValueError("Foi encontrada uma divisão por 0. Entao a matriz e singular.")
 
         matrix_A[i] = matrix_A[i] / pivot
         matrix_I[i] = matrix_I[i] / pivot
@@ -229,7 +229,7 @@ def basic_nonBasic(A, b):
 
     return B, NB, sorted_values, nb_values
 
-def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b):
+def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
     C_B = [clean_value(c[i]) for i in B_idx]
     C_N = [clean_value(c[i]) for i in NB_idx]
 
@@ -256,7 +256,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b):
     min_cost = min(ralative_CN)
     
     if min_cost >= 0:
-        print("\nTodos os custos são maiores que 0 e a solução é ótima")
+        print("\nTodos os custos são maiores que 0 entao a solução é ótima")
         b_matrix = [[val] for val in b]
         xB_matrix = multiply(inverse_B_list, b_matrix)
         final_sol = [clean_value(line[0]) for line in xB_matrix]
@@ -264,6 +264,10 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b):
         Z_matrix = multiply([C_B], xB_matrix)
         Z = clean_value(Z_matrix[0][0])
         
+        if tipo == "max":
+            Z = Z * -1
+            Z = clean_value(Z)
+
         total_vars = len(c)
         full_solution = [0.0] * total_vars
         
@@ -326,6 +330,7 @@ if __name__ == "__main__":
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
 
     A, c = normalized_func(A, sinals, c)
+    print("\n\nMATRIZES DEPOIS DE NORMALIZADAS:\n")
     print(f"matriz A:\n{A}")
     print(f"matriz b:\n{b}")
     print(f"matriz c:\n{c}")
@@ -345,11 +350,11 @@ if __name__ == "__main__":
         base_tuple = tuple(sorted(s_vals))
 
         if base_tuple in tested_bases:
-            print(f"Combinação {base_tuple} já testada. Sorteando novamente...")
+            print(f"Combinação {base_tuple} já testada. sorteia dnv")
             continue 
             
         tested_bases.add(base_tuple)
-        print(f"\nTestando nova base com as colunas: {s_vals}")
+        print(f"\nTestando com as colunas: {s_vals}")
 
         result = cofactor_expansion(B_np)
         result = clean_value(result)
@@ -367,7 +372,6 @@ if __name__ == "__main__":
     identity = gen_identity(new_B)
     inverse_B = inverse(new_B, identity)
 
-
     great = False
     it = 1
     max_it = 20
@@ -375,7 +379,7 @@ if __name__ == "__main__":
     while not great and it <= max_it:
         print(f"\n>>> ITERAÇÃO {it} <<<")
         
-        great, enter_idx, leave_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B, b)
+        great, enter_idx, leave_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B, b, tipo)
 
         if not great:
             enter_col = nb_values[enter_idx]
@@ -402,6 +406,6 @@ if __name__ == "__main__":
     if it > max_it:
         print("\n[AVISO] Limite de iterações atingido. O programa parou por segurança.")
     else:
-        print("\n[FIM] Execução do Simplex finalizada com sucesso!")
+        print("\n##### exec terminou ######################################################################")
 
     # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
