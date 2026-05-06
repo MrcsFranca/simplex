@@ -241,7 +241,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
 
     pi_matrix = multiply([C_B], inverse_B_list)
     pi = [clean_value(val) for val in pi_matrix[0]] 
-    print(f"\nVetor Multiplicador (pi): {pi}")
+    print(f"\nvalor do vetor multiplicador: {pi}")
 
     pi_N_matrix = multiply([pi], NB_list)
     pi_N = pi_N_matrix[0]
@@ -256,7 +256,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
     min_cost = min(ralative_CN)
     
     if min_cost >= 0:
-        print("\nTodos os custos são maiores que 0 entao a solução é ótima")
+        print("\nTodos os custos são maiores que 0 entao a solução ta ótima")
         b_matrix = [[val] for val in b]
         xB_matrix = multiply(inverse_B_list, b_matrix)
         final_sol = [clean_value(line[0]) for line in xB_matrix]
@@ -280,25 +280,25 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
 
         return True, None, None
     
-    enter_idx = ralative_CN.index(min_cost)
+    enter_idx = ralative_CN.index(min_cost) #posição do custo negativo no vetor
     
     new_col = NB_idx[enter_idx]
-    print(f"\n[AÇÃO] O menor custo é {min_cost}. A variável original (coluna {new_col}) ENTRA na base.")
+    print(f"\no menor custo é {min_cost}. A variável original (coluna {new_col}) entra")
 
-    a_Nk = [[line[enter_idx]] for line in NB_list]
-    y_matrix = multiply(inverse_B_list, a_Nk)
+    a_Nk = [[line[enter_idx]] for line in NB_list] #pega a col da variavel que entra
+    y_matrix = multiply(inverse_B_list, a_Nk) #calc a direção do simplex
     y = [clean_value(line[0]) for line in y_matrix]
     print(f"Direção Simplex (y): {y}")
 
     b_matrix = [[val] for val in b]
-    xB_matrix = multiply(inverse_B_list, b_matrix)
+    xB_matrix = multiply(inverse_B_list, b_matrix) #calc valor atual das variaveis de x chapeu
     relative_xB = [clean_value(line[0]) for line in xB_matrix]
     print(f"Solução Básica Atual (relative_xB): {relative_xB}")
 
     min_fact = float('inf')
     leave_idx = -1
 
-    for i in range(len(y)):
+    for i in range(len(y)): # dividindo para ver quem sai da base
         if y[i] > 0:
             fact = relative_xB[i] / y[i]
             if fact < min_fact:
@@ -306,11 +306,11 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
                 leave_idx = i
     
     if leave_idx == -1:
-        print("\n[ALERTA] Todos os valores de y são <= 0. Problema ILIMITADO (f(x) -> -infinito).")
+        print("\nTodos os valores de y são <= 0. problema infinito")
         return True, None, None
         
     out_col = B_idx[leave_idx]
-    print(f"[AÇÃO] A variável original (coluna {out_col}) SAI da base (Razão = {min_fact}).")
+    print(f"A variável original (coluna {out_col}) sai\nRazão = {min_fact}).")
 
     return False, enter_idx, leave_idx
 
@@ -385,7 +385,7 @@ if __name__ == "__main__":
             enter_col = nb_values[enter_idx]
             leave_col = sorted_values[leave_idx]
             
-            print(f"\n[ATUALIZAÇÃO DE BASE] Trocando x_{leave_col + 1} por x_{enter_col + 1}")
+            print(f"\ntrocando x_{leave_col + 1} por x_{enter_col + 1}")
             
             sorted_values[leave_idx] = enter_col
             nb_values[enter_idx] = leave_col
@@ -404,8 +404,11 @@ if __name__ == "__main__":
             it += 1
 
     if it > max_it:
-        print("\n[AVISO] Limite de iterações atingido. O programa parou por segurança.")
+        print("\nLimite de iterações atingido. O programa parou por segurança.")
     else:
         print("\n##### exec terminou ######################################################################")
 
     # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
+
+
+# esta dando erro em algumas execuções da b e em alguas execuções da c e da d e da e
