@@ -275,8 +275,8 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
             posicao_real = B_idx[i]
             full_solution[posicao_real] = final_sol[i]
 
-        print(f"Solução Completa: {full_solution}")
-        print(f"Solução ótima: {Z}")
+        print(f"Solução Completa (os valores do vetor x): {full_solution}")
+        print(f"Solução ótima (Z): {Z}")
 
         return True, None, None
     
@@ -361,16 +361,30 @@ if __name__ == "__main__":
 
         if result != 0.0:
             print(f"Determinante de B = {result}")
-            new_B = B_np
-            new_NB = NB_np
-            sorted_values = s_vals
-            nb_values = nb_vals
-            break
+            identity_temp = gen_identity(B_np)
+            inverse_temp = inverse(B_np, identity_temp)
+            
+            b_matrix = [[val] for val in b]
+            xB_matrix = multiply(inverse_temp, b_matrix)
+            x_B_temp = [clean_value(line[0]) for line in xB_matrix]
+            
+            fact = True
+            for val in x_B_temp:
+                if val < 0:
+                    fact = False
+                    break
+            
+            if fact:
+                new_B = B_np
+                new_NB = NB_np
+                sorted_values = s_vals
+                nb_values = nb_vals
+                inverse_B = inverse_temp 
+                break
+            else:
+                print(f"Base Inviável (valores negativos: {x_B_temp}). Sorteando dnv...")
         else:
             print("Determinante de B = 0. Tem que sortear novas colunas")
-
-    identity = gen_identity(new_B)
-    inverse_B = inverse(new_B, identity)
 
     great = False
     it = 1
