@@ -6,11 +6,17 @@ import random
 random.seed()
 
 # define para 6 casas decimais ou 0
-def clean_value(value, decimals=6):
+def clean_value(value, decimals=5):
     if abs(value) < (10 ** -decimals):
         return 0.0
     
     return round(float(value), decimals)
+
+def clean_value(value, threshold=1e-10):
+    if abs(value) < threshold:
+        return 0.0
+    
+    return float(value)
 
 #Verifica se o coeficiente é positivo ou negativo
 def extract_coefficient(coefficient):
@@ -166,34 +172,88 @@ def inverse(A, identity):
     clean_vectorized = np.vectorize(clean_value)
     return clean_vectorized(matrix_I)
 
-#normaliza as restrições - forma padrão
-def normalized_func(A, sinals, c):
-    # se a inegualdade for menor eu somo uma variavel
-    # se a inegualdade for maior eu subtraio uma variavel
-    A = np.array(A, dtype=float)
-    c = np.array(c, dtype=float)
-    n = A.shape[0]
-    n_var = sum(1 for sinal in sinals if sinal in ['<=', '>='])
-    if n_var == 0:
-        return A
+#normaliza as restrições - forma padrão / tambem prepara a fase 1
+def normalized_func(A, b, sinals, c):
+    A_np = np.array(A, dtype=float)
+    b_np = np.array(b, dtype=float)
+    c_np = np.array(c, dtype=float)
+    
+    n_lines = A_np.shape[0]
+    n_orig_vars = A_np.shape[1]
+    
+    # mult por -1 e inverte o sinal
+    for i in range(n_lines):
+        if b_np[i] < 0:
+            b_np[i] *= -1.0
+            A_np[i] *= -1.0
+            if sinals[i] == '<=':
+                sinals[i] = '>='
+            elif sinals[i] == '>=':
+                sinals[i] = '<='
 
-    matrix_vars = np.zeros((n, n_var))
+    # listas para colunas de custos
+    extra_columns = []
+    c_extra_phase1 = []
+    c_extra_phase2 = []
+    
+    B_idx = [] # indices de quem começa na base 
+    artificial_idx = [] # guardando temp as artificial 
+    
+    current_col = n_orig_vars
+    
+    # 2. add var de folga
+    for i in range(n_lines):
+        sinal = sinals[i]
+        
+        if sinal == '<=':
+            col = np.zeros(n_lines)
+            col[i] = 1.0
+            extra_columns.append(col)
+            c_extra_phase1.append(0.0)
+            c_extra_phase2.append(0.0)
+            B_idx.append(current_col)
+            current_col += 1
+            
+        elif sinal == '>=':
+            col_exc = np.zeros(n_lines)
+            col_exc[i] = -1.0
+            extra_columns.append(col_exc)
+            c_extra_phase1.append(0.0)
+            c_extra_phase2.append(0.0)
+            current_col += 1
+            
+            col_art = np.zeros(n_lines)
+            col_art[i] = 1.0
+            extra_columns.append(col_art)
+            c_extra_phase1.append(1.0)
+            c_extra_phase2.append(0.0)
+            B_idx.append(current_col)
+            artificial_idx.append(current_col)
+            current_col += 1
+            
+        elif sinal == '=':
+            col_art = np.zeros(n_lines)
+            col_art[i] = 1.0
+            extra_columns.append(col_art)
+            c_extra_phase1.append(1.0)
+            c_extra_phase2.append(0.0)
+            B_idx.append(current_col)
+            artificial_idx.append(current_col)
+            current_col += 1
 
-    idx = 0
-    for i in range(n):
-        lines = [0] * n_var
-        if sinals[i] == '>=':
-            matrix_vars[i, idx] = -1
-            idx += 1
-            c = np.hstack((c, 0))
-        elif sinals[i] == '<=':
-            matrix_vars[i, idx] = 1
-            idx += 1
-            c = np.hstack((c, 0))
-
-    A = np.hstack((A, matrix_vars))
-
-    return A, c
+    # coloca nas matrizes iniciais
+    if extra_columns:
+        extra_matrix = np.column_stack(extra_columns)
+        A_np = np.hstack((A_np, extra_matrix))
+        
+    # custos finais
+    c_phase2 = np.concatenate((c_np, c_extra_phase2))
+    c_phase1 = np.concatenate((np.zeros(n_orig_vars), c_extra_phase1))
+    
+    # pega não básicas
+    NB_idx = [j for j in range(A_np.shape[1]) if j not in B_idx]
+    
+    return A_np, b_np, c_phase1, c_phase2, B_idx, NB_idx, artificial_idx
 
 # Se a função for max, mult por -1 para trabalhar só com mínimo
 def all_min(c):
@@ -229,7 +289,7 @@ def basic_nonBasic(A, b):
 
     return B, NB, sorted_values, nb_values
 
-def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
+def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, type):
     C_B = [clean_value(c[i]) for i in B_idx]
     C_N = [clean_value(c[i]) for i in NB_idx]
 
@@ -264,7 +324,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
         Z_matrix = multiply([C_B], xB_matrix)
         Z = clean_value(Z_matrix[0][0])
         
-        if tipo == "max":
+        if type == "max":
             Z = Z * -1
             Z = clean_value(Z)
 
@@ -274,6 +334,9 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
         for i in range(len(B_idx)):
             posicao_real = B_idx[i]
             full_solution[posicao_real] = final_sol[i]
+
+        full_solution = [round(val, 5) for val in full_solution]
+        Z = round(Z, 5)
 
         print(f"Solução Completa (os valores do vetor x): {full_solution}")
         print(f"Solução ótima (Z): {Z}")
@@ -314,115 +377,141 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, tipo):
 
     return False, enter_idx, leave_idx
 
-if __name__ == "__main__":
+def remove_artificial(NB_idx, artificial_idx):
+    # retorna uma nova lista contendo apenas quem n for artificial
+    novo_NB_idx = [idx for idx in NB_idx if idx not in artificial_idx]
+    return novo_NB_idx
+
+if __name__ == "__main__": # 385, 520
     try:
-        tipo, c, A, b, sinals = read_txt('func.txt')
-        
-        """
-        print(f"Tipo: {tipo}")
-        print(f"função objetivo: {c}")
-        print("Matriz A (restrições):")
-        for i in range(len(A)):
-            print(f"  {A[i]} {sinals[i]} {b[i]}")
-        """
-            
+        type, c_original_input, A_input, b_input, sinals = read_txt('func.txt')
     except FileNotFoundError:
         print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
+        exit()
 
-    A, c = normalized_func(A, sinals, c)
+    # ATENÇÃO: A nova função recebe 'b' e retorna mais variáveis
+    A, b, c_phase1, c_phase2, B_idx_F1, NB_idx_F1, artificial = normalized_func(A_input, b_input, sinals, c_original_input)
+    
     print("\n\nMATRIZES DEPOIS DE NORMALIZADAS:\n")
     print(f"matriz A:\n{A}")
     print(f"matriz b:\n{b}")
-    print(f"matriz c:\n{c}")
+    print(f"c original:\n{c_phase2}")
+    if len(artificial) > 0:
+        print(f"c Fase 1:\n{c_phase1}")
 
-    if tipo == "max":
-        c = all_min(c)
+    if type == "max":
+        c_phase2 = all_min(c_phase2) # Inverte só o da fase 2. O da fase 1 já é de minimização!
 
-    tested_bases = set() 
-    new_B = None
-    new_NB = None
-    inverse_B = None
-    sorted_values = []
-    nb_values = []
-    while True:
-        B_np, NB_np, s_vals, nb_vals = basic_nonBasic(A, b)
-        print(f"\nMatrix básica:\n{B_np}")
-        base_tuple = tuple(sorted(s_vals))
-
-        if base_tuple in tested_bases:
-            print(f"Combinação {base_tuple} já testada. sorteia dnv")
-            continue 
-            
-        tested_bases.add(base_tuple)
-        print(f"\nTestando com as colunas: {s_vals}")
-
-        result = cofactor_expansion(B_np)
-        result = clean_value(result)
-
-        if result != 0.0:
-            print(f"Determinante de B = {result}")
-            identity_temp = gen_identity(B_np)
-            inverse_temp = inverse(B_np, identity_temp)
-            
-            b_matrix = [[val] for val in b]
-            xB_matrix = multiply(inverse_temp, b_matrix)
-            x_B_temp = [clean_value(line[0]) for line in xB_matrix]
-            
-            fact = True
-            for val in x_B_temp:
-                if val < 0:
-                    fact = False
-                    break
-            
-            if fact:
-                new_B = B_np
-                new_NB = NB_np
-                sorted_values = s_vals
-                nb_values = nb_vals
-                inverse_B = inverse_temp 
-                break
-            else:
-                print(f"Base Inviável (valores negativos: {x_B_temp}). Sorteando dnv...")
-        else:
-            print("Determinante de B = 0. Tem que sortear novas colunas")
-
-    great = False
-    it = 1
     max_it = 20
 
-    while not great and it <= max_it:
-        print(f"\n>>> ITERAÇÃO {it} <<<")
+    # ve se vai usar a fase 1
+    if len(artificial) == 0:
+        print("\n=== N tem variaveis artificiais ===")
+        print("Indo direto para o SORTEIO da Base na fase 2")
         
-        great, enter_idx, leave_idx = simplex2(c, new_B, new_NB, sorted_values, nb_values, inverse_B, b, tipo)
-
-        if not great:
-            enter_col = nb_values[enter_idx]
-            leave_col = sorted_values[leave_idx]
+        tested_bases = set() 
+        while True:
+            B_np, NB_np, s_vals, nb_vals = basic_nonBasic(A, b)
+            base_tuple = tuple(sorted(s_vals))
+            if base_tuple in tested_bases:
+                continue 
+            tested_bases.add(base_tuple)
             
-            print(f"\ntrocando x_{leave_col + 1} por x_{enter_col + 1}")
-            
-            sorted_values[leave_idx] = enter_col
-            nb_values[enter_idx] = leave_col
-            
-            for i in range(len(sorted_values)):
-                pos = sorted_values[i]
-                new_B[:, i] = A[:, pos]
+            result = cofactor_expansion(B_np)
+            if clean_value(result) != 0.0:
+                identity_temp = gen_identity(B_np)
+                inverse_temp = inverse(B_np, identity_temp)
+                b_matrix = [[val] for val in b]
+                xB_matrix = multiply(inverse_temp, b_matrix)
+                x_B_temp = [clean_value(line[0]) for line in xB_matrix]
                 
-            for i in range(len(nb_values)):
-                pos = nb_values[i]
-                new_NB[:, i] = A[:, pos]
-                
-            identity = gen_identity(new_B)
-            inverse_B = inverse(new_B, identity)
-            
-            it += 1
+                its_fact = True
+                for val in x_B_temp:
+                    if val < 0:
+                        its_fact = False
+                        break
+                if its_fact:
+                    print(f"Base Factível Encontrada no sorteio! xB: {x_B_temp}")
+                    new_B, new_NB = B_np, NB_np
+                    sorted_values, nb_values = s_vals, nb_vals
+                    inverse_B = inverse_temp 
+                    break
 
-    if it > max_it:
-        print("\nLimite de iterações atingido. O programa parou por segurança.")
+        # aqui começa a fase 2
+        great, it = False, 1
+        while not great and it <= max_it:
+            print(f"\n>>> ITERAÇÃO {it} <<<")
+            great, enter_idx, leave_idx = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
+            if not great:
+                enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+                sorted_values[leave_idx] = enter_col
+                nb_values[enter_idx] = leave_col
+                for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
+                for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+                inverse_B = inverse(new_B, gen_identity(new_B))
+                it += 1
+
     else:
-        print("\n##### exec terminou ######################################################################")
+        print("monta base inicial e inicia fase 1")
+        
+        # constrói as matrizes usando os indices que a normalized_func gerou 
+        n_lines = len(A)
+        new_B = np.zeros((n_lines, n_lines), dtype=float)
+        new_NB = np.zeros((n_lines, len(NB_idx_F1)), dtype=float)
+        
+        for i in range(len(B_idx_F1)): new_B[:, i] = A[:, B_idx_F1[i]]
+        for i in range(len(NB_idx_F1)): new_NB[:, i] = A[:, NB_idx_F1[i]]
+            
+        inverse_B = inverse(new_B, gen_identity(new_B))
+        sorted_values = B_idx_F1.copy()
+        nb_values = NB_idx_F1.copy()
+        
+        great, it = False, 1
+        
+        # loop da fase 1
+        while not great and it <= max_it:
+            print(f"\n>>> ITERAÇÃO FASE I - {it} <<<")
+            # passa c_phase1 e type=min -> fase 1 tem q sempre minimizar
+            great, enter_idx, leave_idx = simplex2(c_phase1, new_B, new_NB, sorted_values, nb_values, inverse_B, b, "min")
+            if not great:
+                enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+                sorted_values[leave_idx] = enter_col
+                nb_values[enter_idx] = leave_col
+                for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
+                for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+                inverse_B = inverse(new_B, gen_identity(new_B))
+                it += 1
+                
+        # ve se deu certo
+        b_matrix = [[val] for val in b]
+        xB_matrix = multiply(inverse_B, b_matrix)
+        Z_phase1_matrix = multiply([[clean_value(c_phase1[i]) for i in sorted_values]], xB_matrix)
+        Z_phase1 = clean_value(Z_phase1_matrix[0][0])
+        
+        if Z_phase1 > 0:
+            print(f"\nDeu errado -> A Fase I encerrou com Z = {Z_phase1}.")
+            print("Isso significa que o problema n tem solução")
+        else:
+            print("\nZ da fase I = 0.\nComeçando fase 2")
+            
+            nb_values = remove_artificial(nb_values, artificial)
+            new_NB = np.zeros((n_lines, len(nb_values)), dtype=float)
+            for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+            
+            # exec fase 2
+            great, it = False, 1
+            while not great and it <= max_it:
+                print(f"\n>>> ITERAÇÃO FASE II - {it} <<<")
+                great, enter_idx, leave_idx = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
+                if not great:
+                    enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+                    sorted_values[leave_idx] = enter_col
+                    nb_values[enter_idx] = leave_col
+                    for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
+                    for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+                    inverse_B = inverse(new_B, gen_identity(new_B))
+                    it += 1
+
+    print("\n##### exec terminou ######################################################################")
 
     # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
-
-
-# esta dando erro em algumas execuções da b e em alguas execuções da c e da d e da e
