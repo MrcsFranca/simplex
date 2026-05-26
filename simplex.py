@@ -379,8 +379,8 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, type):
 
 def remove_artificial(NB_idx, artificial_idx):
     # retorna uma nova lista contendo apenas quem n for artificial
-    novo_NB_idx = [idx for idx in NB_idx if idx not in artificial_idx]
-    return novo_NB_idx
+    new_NB_idx = [idx for idx in NB_idx if idx not in artificial_idx]
+    return new_NB_idx
 
 if __name__ == "__main__": # 385, 520
     try:
@@ -407,7 +407,7 @@ if __name__ == "__main__": # 385, 520
     # ve se vai usar a fase 1
     if len(artificial) == 0:
         print("\n=== N tem variaveis artificiais ===")
-        print("Indo direto para o SORTEIO da Base na fase 2")
+        print("vai direto para a fase 2")
         
         tested_bases = set() 
         while True:
