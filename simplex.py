@@ -519,3 +519,28 @@ if __name__ == "__main__": # 385, 520
     print("\n##### exec terminou ######################################################################")
 
     # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
+    
+"""
+esta dando errado
+min z = -1x1 + 2x2
+x1 + x2 >= 1
+-5x1 + 2x2 >= -10
+3x1 + 5x2 >= 15
+
+
+min z = -5x1 - 3x2
+3x1 + 5x2 <= 15
+5x1 + 2x2 <= 10
+
+-----------------------------------------
+
+p6 = inviavel
+
+p9:
+0.16667, 0.0, 1.0
+Z = 13.5
+
+p11: -> pode estar errado
+0.0, 0.0, 1.0
+Z = 13
+"""
