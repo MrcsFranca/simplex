@@ -214,6 +214,7 @@ def normalized_func(A, b, sinals, c):
             B_idx.append(current_col)
             current_col += 1
             
+        # adiciona variáveis artificiais -> vetor preenchido com 0, exceto nas posições com var artificial
         elif sinal == '>=':
             col_exc = np.zeros(n_lines)
             col_exc[i] = -1.0
@@ -471,7 +472,8 @@ if __name__ == "__main__": # 385, 520
         # loop da fase 1
         while not great and it <= max_it:
             print(f"\n>>> ITERAÇÃO FASE I - {it} <<<")
-            # passa c_phase1 e type=min -> fase 1 tem q sempre minimizar
+            # passa c_phase1 (vetor que só tem 1 nas artificiais) e type=min -> fase 1 tem q sempre minimizar
+            # o simplex calcula o pi usando esse vetor de custo "falso"
             great, enter_idx, leave_idx = simplex2(c_phase1, new_B, new_NB, sorted_values, nb_values, inverse_B, b, "min")
             if not great:
                 enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
@@ -482,7 +484,7 @@ if __name__ == "__main__": # 385, 520
                 inverse_B = inverse(new_B, gen_identity(new_B))
                 it += 1
                 
-        # ve se deu certo
+        # ve se deu certo -> se ainda tiver artificial não zerada, da errado
         b_matrix = [[val] for val in b]
         xB_matrix = multiply(inverse_B, b_matrix)
         Z_phase1_matrix = multiply([[clean_value(c_phase1[i]) for i in sorted_values]], xB_matrix)
@@ -494,6 +496,8 @@ if __name__ == "__main__": # 385, 520
         else:
             print("\nZ da fase I = 0.\nComeçando fase 2")
             
+            # exclui os indices das var artificiais da nb_values e depois recria a nb_values
+            # após isso a fase 1 acaba e se inicia a fase 2
             nb_values = remove_artificial(nb_values, artificial)
             new_NB = np.zeros((n_lines, len(nb_values)), dtype=float)
             for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
