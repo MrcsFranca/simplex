@@ -342,7 +342,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, type):
         print(f"Solução Completa (os valores do vetor x): {full_solution}")
         print(f"Solução ótima (Z): {Z}")
 
-        return True, None, None
+        return True, Z, full_solution 
     
     enter_idx = ralative_CN.index(min_cost) #posição do custo negativo no vetor
     
@@ -371,7 +371,7 @@ def simplex2(c, B, NB, B_idx, NB_idx, inverse_B, b, type):
     
     if leave_idx == -1:
         print("\nTodos os valores de y são <= 0. problema infinito")
-        return True, None, None
+        return False, None, None
         
     out_col = B_idx[leave_idx]
     print(f"A variável original (coluna {out_col}) sai\nRazão = {min_fact}).")
@@ -383,34 +383,22 @@ def remove_artificial(NB_idx, artificial_idx):
     new_NB_idx = [idx for idx in NB_idx if idx not in artificial_idx]
     return new_NB_idx
 
-if __name__ == "__main__": # 385, 520
-    try:
-        type, c_original_input, A_input, b_input, sinals = read_txt('func.txt')
-    except FileNotFoundError:
-        print("Crie um arquivo 'func.txt' na mesma pasta para testar.")
-        exit()
-
-    # ATENÇÃO: A nova função recebe 'b' e retorna mais variáveis
-    A, b, c_phase1, c_phase2, B_idx_F1, NB_idx_F1, artificial = normalized_func(A_input, b_input, sinals, c_original_input)
+def execute_simplex(A_input, b_input, sinals, original_c_input, type):
+    A, b, c_phase1, c_phase2, B_idx_F1, NB_idx_F1, artificial = normalized_func(A_input, b_input, sinals, original_c_input)
     
-    print("\n\nMATRIZES DEPOIS DE NORMALIZADAS:\n")
-    print(f"matriz A:\n{A}")
-    print(f"matriz b:\n{b}")
-    print(f"c original:\n{c_phase2}")
-    if len(artificial) > 0:
-        print(f"c Fase 1:\n{c_phase1}")
-
     if type == "max":
-        c_phase2 = all_min(c_phase2) # Inverte só o da fase 2. O da fase 1 já é de minimização!
+        c_phase2 = all_min(c_phase2.copy()) 
 
+    # proteção contra degenerescência na fase 1
+    for idx in artificial:
+        c_phase2[idx] = 1e9
+ 
     max_it = 20
 
-    # ve se vai usar a fase 1
     if len(artificial) == 0:
-        print("\n=== N tem variaveis artificiais ===")
-        print("vai direto para a fase 2")
-        
         tested_bases = set() 
+        new_B, new_NB, sorted_values, nb_values, inverse_B = None, None, [], [], None
+        
         while True:
             B_np, NB_np, s_vals, nb_vals = basic_nonBasic(A, b)
             base_tuple = tuple(sorted(s_vals))
@@ -432,30 +420,31 @@ if __name__ == "__main__": # 385, 520
                         its_fact = False
                         break
                 if its_fact:
-                    print(f"Base Factível Encontrada no sorteio! xB: {x_B_temp}")
                     new_B, new_NB = B_np, NB_np
                     sorted_values, nb_values = s_vals, nb_vals
                     inverse_B = inverse_temp 
                     break
 
-        # aqui começa a fase 2
-        great, it = False, 1
-        while not great and it <= max_it:
-            print(f"\n>>> ITERAÇÃO {it} <<<")
-            great, enter_idx, leave_idx = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
-            if not great:
-                enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
-                sorted_values[leave_idx] = enter_col
-                nb_values[enter_idx] = leave_col
-                for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
-                for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
-                inverse_B = inverse(new_B, gen_identity(new_B))
-                it += 1
+        it = 1
+        while it <= max_it:
+            great, ret1, ret2 = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
+            if great:
+                return True, ret1, ret2 # Retorna success, Z, e o vetor de solução
+            if ret1 is None:
+                return False, None, None # Infactível
+                
+            enter_idx, leave_idx = ret1, ret2
+            enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+            sorted_values[leave_idx] = enter_col
+            nb_values[enter_idx] = leave_col
+            for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
+            for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+            inverse_B = inverse(new_B, gen_identity(new_B))
+            it += 1
+            
+        return False, None, None
 
     else:
-        print("monta base inicial e inicia fase 1")
-        
-        # constrói as matrizes usando os indices que a normalized_func gerou 
         n_lines = len(A)
         new_B = np.zeros((n_lines, n_lines), dtype=float)
         new_NB = np.zeros((n_lines, len(NB_idx_F1)), dtype=float)
@@ -467,80 +456,138 @@ if __name__ == "__main__": # 385, 520
         sorted_values = B_idx_F1.copy()
         nb_values = NB_idx_F1.copy()
         
-        great, it = False, 1
-        
-        # loop da fase 1
-        while not great and it <= max_it:
-            print(f"\n>>> ITERAÇÃO FASE I - {it} <<<")
-            # passa c_phase1 (vetor que só tem 1 nas artificiais) e type=min -> fase 1 tem q sempre minimizar
-            # o simplex calcula o pi usando esse vetor de custo "falso"
-            great, enter_idx, leave_idx = simplex2(c_phase1, new_B, new_NB, sorted_values, nb_values, inverse_B, b, "min")
-            if not great:
-                enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
-                sorted_values[leave_idx] = enter_col
-                nb_values[enter_idx] = leave_col
-                for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
-                for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
-                inverse_B = inverse(new_B, gen_identity(new_B))
-                it += 1
+        it = 1
+        while it <= max_it:
+            great, ret1, ret2 = simplex2(c_phase1, new_B, new_NB, sorted_values, nb_values, inverse_B, b, "min")
+            if great:
+                break
+            if ret1 is None:
+                return False, None, None
                 
-        # ve se deu certo -> se ainda tiver artificial não zerada, da errado
+            enter_idx, leave_idx = ret1, ret2
+            enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+            sorted_values[leave_idx] = enter_col
+            nb_values[enter_idx] = leave_col
+            for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
+            for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+            inverse_B = inverse(new_B, gen_identity(new_B))
+            it += 1
+                
         b_matrix = [[val] for val in b]
         xB_matrix = multiply(inverse_B, b_matrix)
         Z_phase1_matrix = multiply([[clean_value(c_phase1[i]) for i in sorted_values]], xB_matrix)
         Z_phase1 = clean_value(Z_phase1_matrix[0][0])
         
         if Z_phase1 > 0:
-            print(f"\nDeu errado -> A Fase I encerrou com Z = {Z_phase1}.")
-            print("Isso significa que o problema n tem solução")
-        else:
-            print("\nZ da fase I = 0.\nComeçando fase 2")
+            return False, None, None # Infactível
             
-            # exclui os indices das var artificiais da nb_values e depois recria a nb_values
-            # após isso a fase 1 acaba e se inicia a fase 2
-            nb_values = remove_artificial(nb_values, artificial)
-            new_NB = np.zeros((n_lines, len(nb_values)), dtype=float)
+        nb_values = remove_artificial(nb_values, artificial)
+        new_NB = np.zeros((n_lines, len(nb_values)), dtype=float)
+        for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+        
+        it = 1
+        while it <= max_it:
+            great, ret1, ret2 = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
+            if great:
+                return True, ret1, ret2
+            if ret1 is None:
+                return False, None, None
+                
+            enter_idx, leave_idx = ret1, ret2
+            enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
+            sorted_values[leave_idx] = enter_col
+            nb_values[enter_idx] = leave_col
+            for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
             for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
+            inverse_B = inverse(new_B, gen_identity(new_B))
+            it += 1
             
-            # exec fase 2
-            great, it = False, 1
-            while not great and it <= max_it:
-                print(f"\n>>> ITERAÇÃO FASE II - {it} <<<")
-                great, enter_idx, leave_idx = simplex2(c_phase2, new_B, new_NB, sorted_values, nb_values, inverse_B, b, type)
-                if not great:
-                    enter_col, leave_col = nb_values[enter_idx], sorted_values[leave_idx]
-                    sorted_values[leave_idx] = enter_col
-                    nb_values[enter_idx] = leave_col
-                    for i in range(len(sorted_values)): new_B[:, i] = A[:, sorted_values[i]]
-                    for i in range(len(nb_values)): new_NB[:, i] = A[:, nb_values[i]]
-                    inverse_B = inverse(new_B, gen_identity(new_B))
-                    it += 1
+        return False, None, None
 
-    print("\n##### exec terminou ######################################################################")
-
-    # Usar exercício 5.4 da página 59 para auxílio -> exercício que estou lendo no arquivo
+def branch_and_bound(type, c_orig, A_orig, b_orig, sinals_orig):
+    master_list = [(np.array(A_orig), np.array(b_orig), list(sinals_orig))] # lista para armazenar os nos da arvore
     
-"""
-esta dando errado
-min z = -1x1 + 2x2
-x1 + x2 >= 1
--5x1 + 2x2 >= -10
-3x1 + 5x2 >= 15
+    # melhor z inteiro encontrado até agora
+    best_z = -float('inf') if type == "max" else float('inf') # z começa com -infinito
+    best_sol = None
+    
+    it_bb = 1
+    
+    while master_list:
+        print(f"\n[{it_bb}] --- -> resolvendo no do branch and bound ---")
+        actual_a, actual_b, actual_sinals = master_list.pop() # tira da lista
+        
+        # coloca o no tirado da lista para o simplex resolver
+        success, Z_atual, actual_sol = execute_simplex(actual_a, actual_b, actual_sinals, c_orig, type)
+        it_bb += 1
+        
+        if not success:
+            print("nó infactível")
+            continue
+            
+        # se acha um z pior do que o no que ja tem, não é necessário continuar calculando
+        if type == "max" and Z_atual <= best_z:
+            continue
+        if type == "min" and Z_atual >= best_z:
+            continue
+            
+        # verifica se as variáveis originais da solução são inteiras
+        is_integer = True
+        var_frac_idx = -1
+        var_frac_val = -1
+        
+        for i in range(len(c_orig)): # ignora as variaveis de folga
+            val = actual_sol[i]
+            # analisa se é um número fracionário
+            if abs(val - round(val)) > 1e-4:
+                is_integer = False
+                var_frac_idx = i
+                var_frac_val = val
+                break
+                
+        if is_integer: # se for inteiro não precisa mais ramificar
+            print(f"solução inteira z = {Z_atual}")
+            best_z = Z_atual
+            best_sol = actual_sol
+        else:
+            print(f"fração: x_{var_frac_idx + 1} = {var_frac_val} ramifica")
 
+            # ramificação
+            floor_value = math.floor(var_frac_val) # arredonda o valor
+            
+            # xi < piso
+            A_1 = np.vstack([actual_a, np.zeros(len(c_orig))])
+            A_1[-1, var_frac_idx] = 1.0 
+            b_1 = np.append(actual_b, floor_value)
+            sinals_1 = actual_sinals + ['<=']
+            
+            # xi >= piso + 1
+            A_2 = np.vstack([actual_a, np.zeros(len(c_orig))])
+            A_2[-1, var_frac_idx] = 1.0
+            b_2 = np.append(actual_b, floor_value + 1.0)
+            sinals_2 = actual_sinals + ['>=']
+            
+            # adiciona os novos problemas na master_list
+            master_list.append((A_1, b_1, sinals_1))
+            master_list.append((A_2, b_2, sinals_2))
+            
+    return best_z, best_sol
 
-min z = -5x1 - 3x2
-3x1 + 5x2 <= 15
-5x1 + 2x2 <= 10
+if __name__ == "__main__":
+    try:
+        type, original_c_input, A_input, b_input, sinals = read_txt('func.txt')
+    except FileNotFoundError:
+        print("crie um arquivo 'func.txt' na mesma pasta para testar.")
+        exit()
 
------------------------------------------
+    print("\ncomeçando branch and bound")
+    final_Z, final_sol = branch_and_bound(type, original_c_input, A_input, b_input, sinals)
+    
+    print("\n\n\n")
+    if final_sol:
+        print(f"solução de Z: {final_Z}")
+        print(f"Variáveis originais: {final_sol[:len(original_c_input)]}")
+    else:
+        print("problema inviavel")
 
-p6 = inviavel
-
-p9:
-0.16667, 0.0, 1.0
-Z = 13.5
-
-p11: -> pode estar errado
-0.0, 0.0, 1.0
-Z = 13
-"""
+# alterado para o branch and bound: branch_and_bound, execute_simplex, main
